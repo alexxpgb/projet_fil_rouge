@@ -1,0 +1,3 @@
+FROM nginx:stable-alpine
+COPY frontend/public /usr/share/nginx/html
+EXPOSE 80

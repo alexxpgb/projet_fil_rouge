@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOCket Dashboard</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+      .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+      .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+      input, select, button { padding: 8px; border-radius: 6px; border: 1px solid #334155; margin-right: 6px; }
+      button { background: #2563eb; color: white; cursor: pointer; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; font-size: 14px; }
+      tbody tr { cursor: pointer; }
+      tbody tr:hover { background: #273449; }
+      tbody tr.selected { background: #1d4ed8; }
+      .kpi { display: inline-block; margin-right: 12px; background: #334155; padding: 12px; border-radius: 8px; min-width: 150px; }
+      .mono { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 12px; background: #0b1220; border: 1px solid #334155; padding: 10px; border-radius: 8px; }
+      .status { font-size: 13px; opacity: 0.9; margin-left: 8px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>SOCket</h1>
+      <div id="loginCard" class="card">
+        <h3>Connexion</h3>
+        <input id="username" value="admin" placeholder="Utilisateur" />
+        <input id="password" type="password" value="admin123!" placeholder="Mot de passe" />
+        <button onclick="login()">Se connecter</button>
+        <p id="loginMsg"></p>
+      </div>
+
+      <div id="app" class="hidden">
+        <div id="menuView">
+        <div class="card">
+          <h3>Dashboard SOC</h3>
+          <div id="kpis"></div>
+          <button onclick="loadAll()">Rafraichir</button>
+          <span id="liveStatus" class="status">Live: off</span>
+        </div>
+
+        <div class="card">
+          <h3>Logs</h3>
+          <p>Clique sur une ligne pour ouvrir la page detail.</p>
+          <button onclick="loadLogs()">Charger les logs</button>
+          <table><thead><tr><th>ID</th><th>Date</th><th>Host</th><th>Severity</th><th>Source</th><th>Message</th></tr></thead><tbody id="logsBody"></tbody></table>
+        </div>
+
+        <div class="card">
+          <h3>Tickets</h3>
+          <button onclick="loadTickets()">Charger les tickets</button>
+          <table><thead><tr><th>ID</th><th>Incident</th><th>Statut</th><th>Assigne</th></tr></thead><tbody id="ticketsBody"></tbody></table>
+        </div>
+        </div>
+
+        <div id="detailView" class="hidden">
+          <div class="card">
+            <h3>Detail du log</h3>
+            <button onclick="backToMenu()">Retour au menu</button>
+            <div id="logDetail" class="mono">Aucun log selectionne.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./main.js"></script>
+  </body>
+</html>

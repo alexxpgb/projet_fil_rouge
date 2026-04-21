@@ -1,0 +1,8 @@
+node_modules/
+backend/node_modules/
+backend/data/
+.env
+backend/.env
+*.log
+__pycache__/
+listener-agent/.venv/

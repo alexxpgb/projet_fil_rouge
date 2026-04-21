@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+    environment:
+      - PORT=4000
+      - JWT_SECRET=change-me-in-prod
+      - INGEST_API_KEY=dev-ingest-key
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend/data:/app/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

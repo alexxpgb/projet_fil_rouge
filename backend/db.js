@@ -51,14 +51,33 @@ CREATE TABLE IF NOT EXISTS tickets (
   FOREIGN KEY(incident_id) REFERENCES incidents(id),
   FOREIGN KEY(assignee_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_user_id INTEGER,
+  actor_username TEXT,
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT,
+  metadata TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(actor_user_id) REFERENCES users(id)
+);
 `);
 
-const adminExists = db.prepare("SELECT id FROM users WHERE username = ?").get("admin");
-if (!adminExists) {
-  const hash = bcrypt.hashSync("admin123!", 10);
-  db.prepare(
-    "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
-  ).run("admin", hash, "admin");
+const bootstrapUsername = process.env.BOOTSTRAP_ADMIN_USERNAME || "";
+const bootstrapPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || "";
+if (bootstrapUsername && bootstrapPassword) {
+  const exists = db
+    .prepare("SELECT id FROM users WHERE username = ?")
+    .get(bootstrapUsername);
+  if (!exists) {
+    const hash = bcrypt.hashSync(bootstrapPassword, 12);
+    db.prepare(
+      "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
+    ).run(bootstrapUsername, hash, "admin");
+    console.log(`Bootstrap admin cree: ${bootstrapUsername}`);
+  }
 }
 
 module.exports = db;

@@ -13,7 +13,7 @@ except ImportError:
     win32evtlog = None
 
 API_URL = os.getenv("API_URL", "http://localhost:4000/logs/ingest")
-API_KEY = os.getenv("INGEST_API_KEY", "dev-ingest-key")
+API_KEY = os.getenv("INGEST_API_KEY", "dev-ingest-key-very-strong")
 HOSTNAME = socket.gethostname()
 MODE = os.getenv("LISTENER_MODE", "windows").lower()
 CHANNELS = [c.strip() for c in os.getenv("WINDOWS_CHANNELS", "Security,System").split(",") if c.strip()]

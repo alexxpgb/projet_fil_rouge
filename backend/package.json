@@ -4,7 +4,11 @@
   "description": "API SOCket - logs, alertes et tickets",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:security": "node --test tests/security.test.js"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

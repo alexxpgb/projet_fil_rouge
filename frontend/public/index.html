@@ -53,6 +53,12 @@
           <button onclick="loadTickets()">Charger les tickets</button>
           <table><thead><tr><th>ID</th><th>Incident</th><th>Statut</th><th>Assigne</th></tr></thead><tbody id="ticketsBody"></tbody></table>
         </div>
+
+        <div class="card">
+          <h3>Audit logs securite (admin)</h3>
+          <button onclick="loadAuditLogs()">Charger audit logs</button>
+          <table><thead><tr><th>Date</th><th>Action</th><th>Cible</th><th>Acteur</th></tr></thead><tbody id="auditBody"></tbody></table>
+        </div>
         </div>
 
         <div id="detailView" class="hidden">

@@ -8,7 +8,8 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const db = new Database(path.join(dbDir, "socket.db"));
+const sqlitePath = process.env.SQLITE_PATH || path.join(dbDir, "socket.db");
+const db = new Database(sqlitePath);
 db.pragma("journal_mode = WAL");
 
 db.exec(`
@@ -16,7 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('admin','analyst'))
+  role TEXT NOT NULL CHECK(role IN ('admin','analyst')),
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT
 );
 
 CREATE TABLE IF NOT EXISTS logs (
@@ -64,6 +67,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   FOREIGN KEY(actor_user_id) REFERENCES users(id)
 );
 `);
+
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.find((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+ensureColumn("users", "failed_login_attempts", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("users", "locked_until", "TEXT");
 
 const bootstrapUsername = process.env.BOOTSTRAP_ADMIN_USERNAME || "";
 const bootstrapPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || "";

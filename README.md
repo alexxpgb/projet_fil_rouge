@@ -12,6 +12,7 @@ Prototype fonctionnel pour centraliser des logs, detecter des evenements suspect
 - Listener Python avec mode simule et mode logs Windows reels
 - Rate limiting sur login et ingestion de logs
 - Journal d'audit securite (`audit_logs`) sur actions sensibles
+- Verrouillage temporaire de compte apres echecs de login repetes
 
 ## Arborescence
 
@@ -53,6 +54,8 @@ Variables importantes backend:
 - `BOOTSTRAP_ADMIN_USERNAME` et `BOOTSTRAP_ADMIN_PASSWORD` pour creer l'admin au premier demarrage
 - `JWT_SECRET` (24+ caracteres recommandes)
 - `INGEST_API_KEY` (16+ caracteres recommandes)
+- `MAX_FAILED_LOGIN_ATTEMPTS` (par defaut 5)
+- `LOGIN_LOCK_MINUTES` (par defaut 15)
 
 ### Frontend
 
@@ -106,6 +109,16 @@ Notes:
 - CORS restreint via variable d'environnement
 - Audit trail des evenements securite en base SQLite
 - Verification de robustesse des secrets au demarrage
+- Verrouillage de compte temporaire apres trop d'echecs de connexion
+
+## Tests d'integration securite
+
+Backend:
+```bash
+cd backend
+npm install
+npm run test:security
+```
 
 ## CI/CD securite
 

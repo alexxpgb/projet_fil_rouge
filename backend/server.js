@@ -15,6 +15,8 @@ const port = process.env.PORT || 4000;
 const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-me";
 const ingestApiKey = process.env.INGEST_API_KEY || "dev-ingest-key";
 const requireStrongSecrets = process.env.REQUIRE_STRONG_SECRETS !== "false";
+const maxFailedLoginAttempts = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS || 5);
+const lockMinutes = Number(process.env.LOGIN_LOCK_MINUTES || 15);
 
 app.use(helmet());
 const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:8080";
@@ -106,9 +108,30 @@ app.post("/auth/login", loginLimiter, (req, res) => {
   }
   const { username, password } = parsed.data;
   const user = db
-    .prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?")
+    .prepare("SELECT id, username, password_hash, role, failed_login_attempts, locked_until FROM users WHERE username = ?")
     .get(username);
+  if (user?.locked_until && new Date(user.locked_until) > new Date()) {
+    auditLog({
+      actorUserId: user.id,
+      actorUsername: user.username,
+      action: "auth_login_blocked_locked",
+      targetType: "user",
+      targetId: user.id,
+    });
+    return res.status(423).json({ error: "Compte verrouille temporairement" });
+  }
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    if (user) {
+      const nextAttempts = (user.failed_login_attempts || 0) + 1;
+      let lockUntil = null;
+      if (nextAttempts >= maxFailedLoginAttempts) {
+        const until = new Date(Date.now() + lockMinutes * 60 * 1000);
+        lockUntil = until.toISOString();
+      }
+      db.prepare(
+        "UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?"
+      ).run(nextAttempts, lockUntil, user.id);
+    }
     auditLog({
       action: "auth_login_failed",
       targetType: "user",
@@ -120,6 +143,7 @@ app.post("/auth/login", loginLimiter, (req, res) => {
   const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, jwtSecret, {
     expiresIn: "12h",
   });
+  db.prepare("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?").run(user.id);
   auditLog({
     actorUserId: user.id,
     actorUsername: user.username,
@@ -272,4 +296,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;

@@ -66,10 +66,30 @@ async function loadTickets() {
     .join("");
 }
 
+async function loadAuditLogs() {
+  const body = document.getElementById("auditBody");
+  try {
+    const audits = await apiGet("/audit-logs?limit=30");
+    if (!Array.isArray(audits)) {
+      body.innerHTML = `<tr><td colspan="4">Acces refuse ou erreur.</td></tr>`;
+      return;
+    }
+    body.innerHTML = audits
+      .map(
+        (a) =>
+          `<tr><td>${escapeHtml(a.created_at || "-")}</td><td>${escapeHtml(a.action || "-")}</td><td>${escapeHtml((a.target_type || "-") + ":" + (a.target_id || "-"))}</td><td>${escapeHtml(a.actor_username || "-")}</td></tr>`
+      )
+      .join("");
+  } catch (_e) {
+    body.innerHTML = `<tr><td colspan="4">Erreur chargement audit logs.</td></tr>`;
+  }
+}
+
 async function loadAll() {
   await loadDashboard();
   await loadLogs();
   await loadTickets();
+  await loadAuditLogs();
 }
 
 function showLogDetails(logId) {

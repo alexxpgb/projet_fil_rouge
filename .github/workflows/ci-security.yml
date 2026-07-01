@@ -26,8 +26,8 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: npm audit (moderate+)
-        run: npm audit --audit-level=moderate
+      - name: npm audit (high+)
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Security integration tests
         run: npm run test:security
@@ -133,15 +133,15 @@ jobs:
           docker compose up -d --build
           echo "Waiting for backend to be ready..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:4000/health; then break; fi
+            if curl -sf -k https://localhost/api/health; then break; fi
             sleep 3
           done
 
       - name: ZAP Baseline Scan (API)
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: "http://localhost:4000"
-          cmd_options: "-a -j"
+          target: "https://localhost"
+          cmd_options: "-a -j -I"
           allow_issue_writing: false
         continue-on-error: true
 

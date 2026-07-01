@@ -1,0 +1,10 @@
+[allowlist]
+description = "Allowlist pour exemples de code dans la documentation"
+paths = [
+  "docs/pentest-audit.md",
+  "docs/forensique.md",
+  "docs/forensics-playbook.md",
+]
+regexes = [
+  "eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+",
+]

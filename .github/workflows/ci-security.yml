@@ -29,6 +29,9 @@ jobs:
       - name: npm audit (moderate+)
         run: npm audit --audit-level=moderate
 
+      - name: Security integration tests
+        run: npm run test:security
+
   listener-checks:
     runs-on: ubuntu-latest
     defaults:
@@ -57,6 +60,98 @@ jobs:
 
       - name: Run Semgrep
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
         with:
           config: p/security-audit
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks — scan secrets in Git history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./backend
+          format: spdx-json
+          output-file: sbom-backend.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-backend
+          path: sbom-backend.spdx.json
+
+  docker-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -f infra/Dockerfile.backend -t socket-backend:ci .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: socket-backend:ci
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+  zap-dast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare .env for CI
+        run: |
+          cp backend/.env.example backend/.env
+          sed -i 's|change-me-in-prod-with-at-least-24-chars|ci-jwt-secret-for-zap-testing-only|' backend/.env
+          sed -i 's|change-me-ingest-key-16chars|ci-ingest-key-16ch|' backend/.env
+          sed -i 's|change-me-mongo-password|ci-mongo-pass|' backend/.env
+          sed -i 's|change-me-strong-admin-password|AdminCIpass1!|' backend/.env
+          sed -i 's|MONGO_ROOT_USERNAME=mongouser|MONGO_ROOT_USERNAME=mongouser|' backend/.env
+          sed -i 's|mongodb://mongouser:mongopass@mongo:27017|mongodb://mongouser:ci-mongo-pass@mongo:27017|' backend/.env
+
+      - name: Start application stack
+        run: |
+          docker compose up -d --build
+          echo "Waiting for backend to be ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/health; then break; fi
+            sleep 3
+          done
+
+      - name: ZAP Baseline Scan (API)
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: "http://localhost:4000"
+          cmd_options: "-a -j"
+          allow_issue_writing: false
+        continue-on-error: true
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: report_html.html
+
+      - name: Stop application stack
+        if: always()
+        run: docker compose down

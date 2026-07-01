@@ -1,7 +1,10 @@
 FROM node:20-alpine
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
-COPY backend/package.json ./
-RUN npm install
+COPY backend/package*.json ./
+RUN npm ci --omit=dev
 COPY backend ./
+RUN chown -R appuser:appgroup /app
+USER appuser
 EXPOSE 4000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

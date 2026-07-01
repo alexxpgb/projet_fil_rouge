@@ -77,6 +77,32 @@ function ensureColumn(table, column, definition) {
 
 ensureColumn("users", "failed_login_attempts", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("users", "locked_until", "TEXT");
+ensureColumn("logs", "hash", "TEXT");
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS detection_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  severity TEXT NOT NULL CHECK(severity IN ('info','warning','high','critical')),
+  title_template TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  created_by TEXT
+);
+`);
+
+const rulesCount = db.prepare("SELECT COUNT(*) as c FROM detection_rules").get().c;
+if (rulesCount === 0) {
+  const now = new Date().toISOString();
+  const seedRule = db.prepare(
+    "INSERT INTO detection_rules (name, pattern, severity, title_template, enabled, created_at, created_by) VALUES (?, ?, ?, ?, 1, ?, 'system')"
+  );
+  seedRule.run("Brute Force - Failed Login", "failed login", "high", "Suspicion brute force sur {{host}}", now);
+  seedRule.run("Brute Force - Keyword", "brute force", "high", "Suspicion brute force sur {{host}}", now);
+  seedRule.run("PowerShell Encoded", "powershell -enc", "critical", "Execution suspecte sur {{host}}", now);
+  seedRule.run("Mimikatz", "mimikatz", "critical", "Execution suspecte sur {{host}}", now);
+}
 
 const bootstrapUsername = process.env.BOOTSTRAP_ADMIN_USERNAME || "";
 const bootstrapPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || "";

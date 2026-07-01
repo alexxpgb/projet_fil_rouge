@@ -1,41 +1,99 @@
 services:
+  nginx:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - backend-net
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: infra/Dockerfile.backend
+    env_file:
+      - path: backend/.env
+        required: false
     environment:
-      - PORT=4000
-      - JWT_SECRET=change-me-in-prod-with-at-least-24-chars
-      - INGEST_API_KEY=dev-ingest-key-very-strong
-      - CORS_ORIGIN=http://localhost:8080
-      - MONGO_URI=mongodb://mongo:27017
-      - MONGO_DB_NAME=socket
-      - MONGO_LOG_COLLECTION=logs
-      - REQUIRE_STRONG_SECRETS=true
-      - BOOTSTRAP_ADMIN_USERNAME=admin
-      - BOOTSTRAP_ADMIN_PASSWORD=admin123!
-    ports:
-      - "4000:4000"
+      # Valeurs dev par défaut — surchargées par backend/.env si présent
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-4000}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-min24}
+      INGEST_API_KEY: ${INGEST_API_KEY:-dev-ingest-key-change-in-production}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongouser:mongopass@mongo:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-socket_logs}
+      MONGO_LOG_COLLECTION: ${MONGO_LOG_COLLECTION:-logs}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-Admin1234!}
+      MAX_FAILED_LOGIN_ATTEMPTS: ${MAX_FAILED_LOGIN_ATTEMPTS:-5}
+      LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+    # port 4000 non exposé sur l'hôte — trafic passe par nginx
     volumes:
       - ./backend/data:/app/data
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
 
   frontend:
     build:
       context: .
       dockerfile: infra/Dockerfile.frontend
-    ports:
-      - "8080:80"
+    # port 8080 non exposé sur l'hôte — trafic passe par nginx
     depends_on:
       - backend
+    networks:
+      - backend-net
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
 
   mongo:
     image: mongo:7
-    ports:
-      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-mongouser}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-mongopass}
     volumes:
       - mongo_data:/data/db
+    networks:
+      - backend-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   mongo_data:
+
+networks:
+  backend-net:
+    driver: bridge

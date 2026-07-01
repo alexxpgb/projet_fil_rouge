@@ -1,0 +1,52 @@
+---
+title: Pipeline CI/CD DevSecOps — SOCket
+---
+flowchart LR
+    PUSH["git push\nmain / PR"] --> TRIGGER
+
+    subgraph TRIGGER ["GitHub Actions — Déclenchement"]
+        direction TB
+        T1["on: push main"]
+        T2["on: pull_request main"]
+    end
+
+    TRIGGER --> PARALLEL
+
+    subgraph PARALLEL ["Jobs parallèles"]
+        direction TB
+
+        subgraph J1 ["backend-checks"]
+            B1["npm ci"] --> B2["npm audit\n--audit-level=moderate"] --> B3["npm run test:security\n(supertest)"]
+        end
+
+        subgraph J2 ["listener-checks"]
+            L1["pip install"] --> L2["pip-audit"]
+        end
+
+        subgraph J3 ["semgrep"]
+            S1["Semgrep SAST\np/security-audit\n🔴 bloquant"]
+        end
+
+        subgraph J4 ["gitleaks"]
+            G1["Scan historique Git\nrecherche secrets"]
+        end
+
+        subgraph J5 ["sbom"]
+            SB1["Syft SBOM\nbacked → spdx-json"] --> SB2["Upload artifact\nsbom-backend"]
+        end
+
+        subgraph J6 ["docker-scan"]
+            D1["Build image\nsocket-backend:ci"] --> D2["Trivy scan\nCRITICAL + HIGH\n🔴 bloquant"]
+        end
+
+        subgraph J7 ["zap-dast"]
+            Z1["docker compose up"] --> Z2["ZAP Baseline\nhttp://localhost:4000"] --> Z3["Upload rapport\nHTML"] --> Z4["docker compose down"]
+        end
+    end
+
+    PARALLEL --> RESULT
+
+    subgraph RESULT ["Résultat"]
+        OK["✅ Tous les jobs verts\n→ Merge autorisé"]
+        KO["❌ Au moins 1 job rouge\n→ Merge bloqué"]
+    end

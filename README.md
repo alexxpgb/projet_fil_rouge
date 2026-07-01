@@ -1,5 +1,7 @@
 # SOCket - Prototype plateforme SOC
 
+![CI Security](../../actions/workflows/ci-security.yml/badge.svg)
+
 Prototype fonctionnel pour centraliser des logs, detecter des evenements suspects, et suivre des tickets d'incident.
 
 ## Fonctionnalites

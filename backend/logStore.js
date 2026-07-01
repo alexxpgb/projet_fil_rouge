@@ -1,8 +1,22 @@
 const { MongoClient } = require("mongodb");
+const crypto = require("crypto");
 const db = require("./db");
 
 let mongoClient = null;
 let mongoCollection = null;
+
+function hashLog(payload) {
+  const stable = JSON.stringify({
+    timestamp: payload.timestamp,
+    host: payload.host,
+    event_id: payload.event_id || null,
+    severity: payload.severity,
+    source: payload.source,
+    message: payload.message,
+    raw: payload.raw || null,
+  });
+  return crypto.createHash("sha256").update(stable).digest("hex");
+}
 
 async function initLogStore() {
   const mongoUri = process.env.MONGO_URI || "";
@@ -24,6 +38,7 @@ async function initLogStore() {
     mongoCollection = mongoDb.collection(mongoCollectionName);
     await mongoCollection.createIndex({ timestamp: -1 });
     await mongoCollection.createIndex({ host: 1, severity: 1 });
+    await mongoCollection.createIndex({ hash: 1 });
     console.log("LogStore: MongoDB connecte.");
   } catch (error) {
     console.log(`LogStore: echec MongoDB (${error.message}), fallback SQLite.`);
@@ -31,22 +46,17 @@ async function initLogStore() {
   }
 }
 
-function getInsertSqlStatement() {
-  return db.prepare(
-    "INSERT INTO logs (timestamp, host, event_id, severity, source, message, raw) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  );
-}
-
 async function insertLog(payload) {
+  const hash = hashLog(payload);
+
   if (mongoCollection) {
-    const result = await mongoCollection.insertOne(payload);
-    return {
-      id: result.insertedId.toString(),
-      storage: "mongo",
-    };
+    const result = await mongoCollection.insertOne({ ...payload, hash });
+    return { id: result.insertedId.toString(), storage: "mongo", hash };
   }
 
-  const stmt = getInsertSqlStatement();
+  const stmt = db.prepare(
+    "INSERT INTO logs (timestamp, host, event_id, severity, source, message, raw, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  );
   const result = stmt.run(
     payload.timestamp,
     payload.host,
@@ -54,12 +64,30 @@ async function insertLog(payload) {
     payload.severity,
     payload.source,
     payload.message,
-    payload.raw || null
+    payload.raw || null,
+    hash
   );
-  return {
-    id: result.lastInsertRowid,
-    storage: "sqlite",
-  };
+  return { id: result.lastInsertRowid, storage: "sqlite", hash };
+}
+
+async function verifyLog(id) {
+  if (mongoCollection) {
+    const { ObjectId } = require("mongodb");
+    let oid;
+    try { oid = new ObjectId(id); } catch { return null; }
+    const doc = await mongoCollection.findOne({ _id: oid });
+    if (!doc) return null;
+    const { hash: storedHash, ...rest } = doc;
+    delete rest._id;
+    const computed = hashLog(rest);
+    return { stored_hash: storedHash, computed_hash: computed, match: storedHash === computed };
+  }
+
+  const row = db.prepare("SELECT * FROM logs WHERE id = ?").get(id);
+  if (!row) return null;
+  const { hash: storedHash, id: _id, ...rest } = row;
+  const computed = hashLog(rest);
+  return { stored_hash: storedHash, computed_hash: computed, match: storedHash === computed };
 }
 
 async function getLogs({ host, severity, limit }) {
@@ -77,36 +105,23 @@ async function getLogs({ host, severity, limit }) {
       source: row.source,
       message: row.message,
       raw: row.raw || null,
+      hash: row.hash || null,
       storage: "mongo",
     }));
   }
 
   let query = "SELECT * FROM logs WHERE 1=1";
   const params = [];
-  if (host) {
-    query += " AND host = ?";
-    params.push(host);
-  }
-  if (severity) {
-    query += " AND severity = ?";
-    params.push(severity);
-  }
+  if (host) { query += " AND host = ?"; params.push(host); }
+  if (severity) { query += " AND severity = ?"; params.push(severity); }
   query += " ORDER BY id DESC LIMIT ?";
   params.push(limit);
-  const rows = db.prepare(query).all(...params);
-  return rows.map((row) => ({ ...row, storage: "sqlite" }));
+  return db.prepare(query).all(...params).map((row) => ({ ...row, storage: "sqlite" }));
 }
 
 async function countLogs() {
-  if (mongoCollection) {
-    return mongoCollection.countDocuments();
-  }
+  if (mongoCollection) return mongoCollection.countDocuments();
   return db.prepare("SELECT COUNT(*) as c FROM logs").get().c;
 }
 
-module.exports = {
-  initLogStore,
-  insertLog,
-  getLogs,
-  countLogs,
-};
+module.exports = { initLogStore, insertLog, verifyLog, getLogs, countLogs };

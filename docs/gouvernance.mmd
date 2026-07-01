@@ -1,0 +1,36 @@
+---
+title: Diagramme de gouvernance — SOCket
+---
+flowchart TD
+    RSSI["🔒 RSSI / Responsable projet\n(Politique, arbitrage, validation PSSI)"]
+
+    ADMIN["👤 Admin SOC\n(Gestion comptes, règles détection,\naudit logs, métriques sécurité)"]
+
+    ANALYST["🔍 Analyste SOC\n(Investigation incidents,\nmise à jour tickets, forensique)"]
+
+    LISTENER["🤖 Listener Agent\n(Collecte logs automatique,\nmode simulé / Windows réel)"]
+
+    RSSI -->|"Valide la PSSI\net les dérogations"| ADMIN
+    ADMIN -->|"Crée et gère\nles comptes"| ANALYST
+    ADMIN -->|"Configure les règles\nde détection via POST /rules"| LISTENER
+    ANALYST -->|"Prend en charge\net clôture les tickets"| INCIDENT
+    LISTENER -->|"POST /logs/ingest\n(x-api-key)"| API
+
+    subgraph SOCket ["Plateforme SOCket"]
+        API["⚡ API Backend\n(Auth JWT + RBAC)"]
+        INCIDENT["🎫 Incidents & Tickets"]
+        AUDITLOG["📋 Audit Trail\n(non modifiable)"]
+        API --> INCIDENT
+        API --> AUDITLOG
+    end
+
+    subgraph ESCALADE ["Procédure d'escalade"]
+        direction LR
+        E1["Incident HIGH\n→ Analyste assigné\n< 15 min"] --> E2["Incident CRITICAL\n→ Admin notifié\n+ Webhook\n< 5 min"] --> E3["Compromission\n→ RSSI + isolation\n< 30 min"]
+    end
+
+    INCIDENT --> ESCALADE
+
+    subgraph EXCEPTION ["Procédure de dérogation PSSI"]
+        D1["Demande écrite\n(analyste)"] --> D2["Validation admin\n+ durée max"] --> D3["Enregistrement\naudit_log"]
+    end

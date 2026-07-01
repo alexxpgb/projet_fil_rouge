@@ -12,6 +12,23 @@ const logStore = require("./logStore");
 
 const app = express();
 const port = process.env.PORT || 4000;
+const webhookUrl = process.env.WEBHOOK_URL || "";
+
+async function sendWebhook(incident) {
+  if (!webhookUrl) return;
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `[SOCket ALERTE] ${incident.severity.toUpperCase()}: ${incident.title}`,
+        incident,
+      }),
+    });
+  } catch (e) {
+    console.error("Webhook failed:", e.message);
+  }
+}
 const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-me";
 const ingestApiKey = process.env.INGEST_API_KEY || "dev-ingest-key";
 const requireStrongSecrets = process.env.REQUIRE_STRONG_SECRETS !== "false";
@@ -75,14 +92,25 @@ function auth(requiredRoles = []) {
 
 function detectRule(log) {
   const msg = (log.message || "").toLowerCase();
-  if (msg.includes("failed login") || msg.includes("brute force")) {
-    return { title: `Suspicion brute force sur ${log.host}`, severity: "high" };
-  }
-  if (msg.includes("powershell -enc") || msg.includes("mimikatz")) {
-    return { title: `Execution suspecte sur ${log.host}`, severity: "critical" };
+  const rules = db.prepare("SELECT * FROM detection_rules WHERE enabled = 1").all();
+  for (const rule of rules) {
+    if (msg.includes(rule.pattern.toLowerCase())) {
+      return {
+        title: rule.title_template.replace("{{host}}", log.host),
+        severity: rule.severity,
+      };
+    }
   }
   return null;
 }
+
+const ruleSchema = z.object({
+  name: z.string().min(1).max(100),
+  pattern: z.string().min(1).max(200),
+  severity: z.enum(["info", "warning", "high", "critical"]),
+  title_template: z.string().min(1).max(200),
+  enabled: z.boolean().optional().default(true),
+});
 
 function auditLog({ actorUserId = null, actorUsername = null, action, targetType, targetId = null, metadata = null }) {
   const createdAt = new Date().toISOString();
@@ -202,6 +230,9 @@ app.post("/logs/ingest", ingestLimiter, async (req, res) => {
       targetId: incidentResult.lastInsertRowid,
       metadata: { logId, severity: rule.severity, title: rule.title },
     });
+    if (rule.severity === "critical") {
+      sendWebhook({ id: incidentResult.lastInsertRowid, title: rule.title, severity: rule.severity });
+    }
   }
 
   res.status(201).json({ ok: true, log_id: logId, storage: inserted.storage });
@@ -270,6 +301,66 @@ app.get("/audit-logs", auth(["admin"]), (req, res) => {
     .prepare("SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?")
     .all(limit);
   res.json(rows);
+});
+
+app.get("/rules", auth(["admin", "analyst"]), (req, res) => {
+  const rows = db.prepare("SELECT * FROM detection_rules ORDER BY id").all();
+  res.json(rows);
+});
+
+app.post("/rules", auth(["admin"]), (req, res) => {
+  const parsed = ruleSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: "Payload règle invalide" });
+  const { name, pattern, severity, title_template, enabled } = parsed.data;
+  const now = new Date().toISOString();
+  const result = db.prepare(
+    "INSERT INTO detection_rules (name, pattern, severity, title_template, enabled, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(name, pattern, severity, title_template, enabled ? 1 : 0, now, req.user.username);
+  auditLog({ actorUserId: req.user.sub, actorUsername: req.user.username, action: "rule_created", targetType: "detection_rule", targetId: result.lastInsertRowid, metadata: { name, pattern, severity } });
+  res.status(201).json({ ok: true, id: result.lastInsertRowid });
+});
+
+app.patch("/rules/:id", auth(["admin"]), (req, res) => {
+  const id = Number(req.params.id);
+  const parsed = ruleSchema.partial().safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: "Payload invalide" });
+  const existing = db.prepare("SELECT * FROM detection_rules WHERE id = ?").get(id);
+  if (!existing) return res.status(404).json({ error: "Règle introuvable" });
+  const next = { ...existing, ...parsed.data };
+  db.prepare("UPDATE detection_rules SET name=?, pattern=?, severity=?, title_template=?, enabled=? WHERE id=?")
+    .run(next.name, next.pattern, next.severity, next.title_template, next.enabled ? 1 : 0, id);
+  auditLog({ actorUserId: req.user.sub, actorUsername: req.user.username, action: "rule_updated", targetType: "detection_rule", targetId: id, metadata: parsed.data });
+  res.json({ ok: true });
+});
+
+app.get("/metrics/security", auth(["admin"]), async (req, res) => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+  const openIncidents   = db.prepare("SELECT COUNT(*) as c FROM incidents WHERE status != 'closed'").get().c;
+  const criticalOpen    = db.prepare("SELECT COUNT(*) as c FROM incidents WHERE severity='critical' AND status!='closed'").get().c;
+  const failedLoginsH   = db.prepare("SELECT COUNT(*) as c FROM audit_logs WHERE action='auth_login_failed' AND created_at > ?").get(oneHourAgo).c;
+  const lockedAccounts  = db.prepare("SELECT COUNT(*) as c FROM users WHERE locked_until IS NOT NULL AND locked_until > ?").get(now).c;
+  const openTickets     = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE status != 'closed'").get().c;
+  const activeRules     = db.prepare("SELECT COUNT(*) as c FROM detection_rules WHERE enabled = 1").get().c;
+  const totalLogs       = await logStore.countLogs();
+  res.json({
+    timestamp: now,
+    incidents:  { open: openIncidents, critical_open: criticalOpen },
+    tickets:    { open: openTickets },
+    auth:       { failed_logins_last_hour: failedLoginsH, locked_accounts: lockedAccounts },
+    logs:       { total: totalLogs },
+    detection:  { active_rules: activeRules },
+  });
+});
+
+app.get("/logs/:id/verify", auth(["admin", "analyst"]), async (req, res) => {
+  const result = await logStore.verifyLog(req.params.id);
+  if (!result) return res.status(404).json({ error: "Log introuvable" });
+  if (!result.match) {
+    auditLog({ action: "log_integrity_violation", targetType: "log", targetId: req.params.id });
+    return res.status(200).json({ ok: false, ...result, alert: "INTEGRITY VIOLATION — log may have been tampered" });
+  }
+  res.json({ ok: true, log_id: req.params.id, ...result });
 });
 
 app.get("/dashboard", auth(["admin", "analyst"]), async (_req, res) => {

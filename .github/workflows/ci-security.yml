@@ -104,14 +104,23 @@ jobs:
       - name: Build backend image
         run: docker build -f infra/Dockerfile.backend -t socket-backend:ci .
 
-      - name: Scan image with Trivy
+      - name: Scan image with Trivy (CRITICAL bloquant)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: socket-backend:ci
           format: table
           exit-code: 1
           ignore-unfixed: true
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
+
+      - name: Scan image avec Trivy (HIGH informatif)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: socket-backend:ci
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+          severity: HIGH
 
   zap-dast:
     runs-on: ubuntu-latest

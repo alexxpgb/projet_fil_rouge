@@ -438,7 +438,15 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S1: COVER -->
     <div class="slide slide-cover active" id="s1"
       data-dur="0:30"
-      data-notes="Bonjour, je suis **Alexandre Petit**, étudiant en B3 Cybersécurité à Ynov. Je vais vous présenter **SOCket**, notre projet fil rouge : une plateforme de gestion d'incidents SOC que nous avons conçue, développée et sécurisée de bout en bout. La présentation dure 25 minutes, je reste disponible pour vos questions ensuite. *Sourire, regarder le jury, respirer.*">
+      data-notes="*Attendre que tout le monde soit installé. Regarder le jury, sourire, respirer.*
+
+Bonjour, je suis **Alexandre Petit**, et voici **Paul Givaudan**, nous sommes étudiants en B3 Cybersécurité à Ynov. Nous allons vous présenter **SOCket** — notre projet fil rouge : une plateforme de gestion d'incidents SOC conçue, développée et sécurisée de A à Z.
+
+La présentation dure **25 minutes**, suivie d'une session de questions. Nous avons une démo en live préparée, donc si quelque chose plante — c'est du DevSecOps authentique.
+
+*Ne pas se précipiter. Laisser le silence s'installer 2 secondes avant de passer à la suite.*
+
+**Si le jury interrompt dès le début :** C'est bon signe — ça veut dire qu'ils s'intéressent. Répondre calmement et reprendre le fil.">
       <div class="cover-logo">SOCket</div>
       <div class="cover-sub">// Plateforme de gestion d'incidents SOC</div>
       <div class="cover-line"></div>
@@ -452,7 +460,17 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S2: CONTEXTE -->
     <div class="slide" id="s2"
       data-dur="1:30"
-      data-notes="**Le problème :** les équipes SOC gèrent leurs incidents dans des outils disparates — emails, tableurs, tickets génériques. Résultat : le MTTD moyen d'un SOC est de 197 jours selon IBM. *Marquer une pause ici.* Le brief client, c'est un RSSI d'un groupe industriel qui veut remplacer ça par une plateforme centralisée. Notre réponse : SOCket.">
+      data-notes="**Ce que tu dis :** Imaginez un analyste SOC qui reçoit une alerte à 3h du matin. Il ouvre son email, cherche le tableur des incidents, essaie de retrouver les logs dans un outil séparé — pendant ce temps, l'attaquant avance. C'est la réalité de beaucoup de SOC aujourd'hui.
+
+**Le chiffre clé à marteler :** 197 jours — c'est le MTTD moyen selon le rapport IBM Cost of a Data Breach 2023. *Faire une pause après avoir dit ce chiffre.* Ça veut dire que la moitié des entreprises mettent plus de 6 mois à détecter une intrusion.
+
+**Le brief client :** Un RSSI d'un groupe industriel veut centraliser — un seul outil, de la détection à la clôture. Pas de PowerPoint, pas de tableur. Une plateforme.
+
+**Questions jury probables :**
+- *'Vous avez travaillé avec un vrai client ?'* → Non, c'est un scénario fictif mais basé sur des besoins réels documentés dans notre analyse EBIOS.
+- *'197 jours c'est une moyenne, ça veut rien dire'* → Exact, c'est pourquoi on a défini des objectifs précis dans notre PSSI : MTTD auto < 60 secondes, MTTD humain < 5 minutes.
+
+**Transition :** Voilà le problème. Notre réponse s'appelle SOCket.">
       <div class="eyebrow">01 — Contexte</div>
       <h2>Un SOC sans plateforme centralisée, <em>c'est un angle mort</em></h2>
       <div class="stats-row">
@@ -466,7 +484,23 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S3: SOLUTION -->
     <div class="slide" id="s3"
       data-dur="1:00"
-      data-notes="SOCket c'est **3 composants** qui travaillent ensemble : un agent Python qui collecte les logs, une API Express qui les analyse et crée des incidents automatiquement, et un dashboard pour les analystes. *Pointer chaque box dans le schéma.* Le mot clé : tout est automatisé — de la collecte à la création du ticket.">
+      data-notes="*Pointer physiquement chaque box dans le schéma en parlant.*
+
+**Le flux complet en une phrase :** Le Listener collecte les logs Windows, les envoie à l'API via Nginx TLS, l'API les stocke dans MongoDB, analyse si c'est suspect, et si oui crée automatiquement un incident et un ticket dans SQLite.
+
+**Les 5 composants à connaître par cœur :**
+1. **Listener** (Python) — tourne sur la machine surveillée, lit les événements Windows ou simule des logs. S'authentifie avec une clé API.
+2. **Nginx** — seul point d'entrée exposé. Fait la terminaison TLS 1.3, redirige /api/ vers le backend.
+3. **Backend** (Express.js) — cerveau du système. Auth JWT, ingestion logs, détection, gestion incidents/tickets.
+4. **SQLite** — incidents, tickets, utilisateurs, audit trail. ACID, transactionnel.
+5. **MongoDB** — logs bruts. NoSQL, scalable, full-text search.
+
+**Questions jury probables :**
+- *'Pourquoi Python pour le listener ?'* → Les librairies Windows Event Log (pywin32) sont matures en Python. En Go ou Rust ce serait plus performant mais moins lisible pour un prototype.
+- *'Le listener tourne en continu ?'* → Oui, boucle infinie avec un intervalle configurable. En production on le déploierait comme un service Windows.
+- *'Qu'est-ce qui se passe si l'API est down ?'* → Le listener loggue les erreurs localement et réessaie. C'est documenté comme limite — en prod on ajouterait une queue (Redis, RabbitMQ).
+
+**Transition :** Rentrons dans les choix d'architecture.">
       <div class="eyebrow">02 — Solution</div>
       <h2>SOCket : <em>collecte → détection → réponse</em></h2>
       <div class="flow">
@@ -492,7 +526,20 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S4: ARCHITECTURE -->
     <div class="slide" id="s4"
       data-dur="2:30"
-      data-notes="**Choix d'architecture clés.** MongoDB pour les logs : scalabilité, indexation full-text, on peut stocker des millions de logs sans dégrader les performances. SQLite pour les incidents/tickets : ACID, pas de réseau, parfait pour un état transactionnel. *Si on vous demande 'pourquoi pas PostgreSQL partout' :* SQLite suffit pour le prototype, PostgreSQL en production — c'est documenté. **La séparation SQL/NoSQL est un choix de conception défensif** : si MongoDB tombe, les incidents et tickets restent accessibles.">
+      data-notes="**Pourquoi deux bases ?** C'est la question que le jury va forcément poser.
+
+MongoDB pour les logs : les logs ont des structures variables selon la source (Windows Security, EDR, syslog). NoSQL gère ça naturellement. Et on peut en stocker des millions sans index à maintenir manuellement.
+
+SQLite pour les incidents/tickets/auth : ces données sont transactionnelles — si tu mets à jour un ticket, soit ça marche complètement soit ça marche pas. ACID garanti. Et SQLite ne nécessite pas de serveur séparé — moins de surface d'attaque.
+
+**Questions jury probables :**
+- *'Pourquoi pas PostgreSQL partout ?'* → SQLite suffit pour le prototype et évite un service réseau supplémentaire. On documente PostgreSQL comme évolution en production dans architecture.md.
+- *'Si MongoDB tombe, vous perdez tous vos logs ?'* → On perd l'accès temps réel aux logs, mais les incidents et tickets restent dans SQLite. Le SOC peut continuer à travailler. Et SQLite a un fallback automatique si MongoDB est absent au démarrage.
+- *'JWT c'est stateless, comment vous révoquez un token ?'* → On ne peut pas révoquer instantanément — c'est une limite documentée. Le token expire après 12 heures. En prod, on ajouterait une blacklist Redis.
+- *'Bcrypt coût 12 pourquoi pas 14 ?'* → Coût 12 = ~250ms par hash, imperceptible pour l'utilisateur. Coût 14 = ~1 seconde, inacceptable en prod. C'est le consensus OWASP.
+- *'Zod c'est quoi ?'* → Une librairie de validation de schémas TypeScript/JavaScript. Sur chaque endpoint, on définit le schéma attendu — si le payload ne correspond pas, c'est rejeté avec 400 avant même d'atteindre la logique métier. Protection contre l'injection et les données malformées.
+
+**Démo rapide possible ici :** `docker exec socket-backend whoami` → appuser">
       <div class="eyebrow">03 — Architecture technique</div>
       <h2>Deux bases de données, <em>un choix délibéré</em></h2>
       <div class="two-col">
@@ -540,7 +587,22 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S5: GRC -->
     <div class="slide" id="s5"
       data-dur="3:00"
-      data-notes="**La GRC, c'est la fondation.** Avant d'écrire une ligne de code, on a formalisé la politique. *Mentionner les 3 documents clés.* L'analyse EBIOS RM nous a permis d'identifier 10 scénarios de risque — je vais vous montrer les 3 critiques. **Insister sur STRIDE** : on a raisonné par type de menace pour chaque composant, c'est ce qui nous a permis de ne rien oublier. *Si on vous challenge sur RBAC vs autre chose :* on a 2 rôles car la surface fonctionnelle le justifie — un 3e rôle 'lecteur seul' serait la prochaine étape.">
+      data-notes="**Message clé :** La sécurité ne s'improvise pas. Avant d'écrire une ligne de code, on a formalisé les règles. C'est ça la vraie démarche de sécurité — pas ajouter un firewall à la fin.
+
+**Les 4 documents GRC à connaître :**
+1. **PSSI** — la loi du système. Qui peut faire quoi, comment les secrets sont gérés, que faire en cas d'incident. Alignée RGPD et ISO 27001.
+2. **EBIOS RM** — méthode française de gestion des risques. On a identifié 10 scénarios, coté chacun Vraisemblance × Impact. Les 3 critiques avaient une criticité de 12/16 — tous traités.
+3. **STRIDE** — modélisation des menaces par composant. 6 types de menaces analysées sur 5 composants. Ça nous a forcés à réfléchir à chaque vecteur d'attaque.
+4. **Analyse de conformité** — RGPD articles 5, 25, 30, 32, 33 + ISO 27001 Annex A contrôles 9/10/12.
+
+**STRIDE par cœur :** Spoofing → Tampering → Repudiation → Information Disclosure → DoS → Elevation of Privilege
+
+**Questions jury probables :**
+- *'EBIOS RM c'est quoi exactement ?'* → C'est la méthode d'analyse de risques de l'ANSSI. On définit des sources de risque, des biens essentiels, des scénarios opérationnels, et on les cote. Notre version est simplifiée mais reprend la structure.
+- *'Repudiation c'est quoi ?'* → C'est quand quelqu'un nie avoir fait une action. On la couvre avec l'audit trail non modifiable — insertion seule, jamais de UPDATE ni DELETE sur audit_logs.
+- *'Pourquoi seulement 2 rôles ?'* → La surface fonctionnelle le justifie. Admin gère les comptes et les règles, Analyst investigate et clôture les tickets. Un 3e rôle 'lecteur seul' est documenté comme évolution.
+- *'PSSI ça sert à quoi concrètement ?'* → C'est le contrat de sécurité. Si un analyste fait quelque chose de non conforme, la PSSI définit quoi, pourquoi c'est interdit, et quelle est la procédure de dérogation.
+- *'RGPD vous stockez des données perso ?'* → Oui — les adresses IP sont des données personnelles (Recital 30 RGPD). On les stocke uniquement le temps de l'investigation, avec une politique de rétention à 12 mois recommandée en production.">
       <div class="eyebrow">04 — GRC & PSSI</div>
       <h2>Une politique de sécurité <em>avant le code</em></h2>
       <div class="two-col">
@@ -583,7 +645,22 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S6: INFRA -->
     <div class="slide" id="s6"
       data-dur="2:30"
-      data-notes="**L'infrastructure est durcie sur 3 niveaux.** Réseau : MongoDB n'est plus accessible depuis l'hôte, tout passe par Nginx. Conteneurs : utilisateur non-root, image Alpine, ressources limitées. Secrets : plus rien dans le code. *Montrer la commande whoami en live si possible.* On s'est appuyé sur le **CIS Docker Benchmark** — 14 contrôles évalués, 12 conformes, 2 non applicables en prototype.">
+      data-notes="**Message clé :** L'infrastructure est la première ligne de défense. Même si le code est parfait, une mauvaise config Docker peut tout compromettre.
+
+**3 niveaux de durcissement à dérouler :**
+
+RÉSEAU : Avant, MongoDB était accessible sur le port 27017 depuis n'importe quelle machine du réseau. Maintenant il est dans un réseau Docker interne — invisible depuis l'hôte. Le seul point d'entrée exposé c'est Nginx sur 80/443.
+
+CONTENEURS : On s'est basé sur le CIS Docker Benchmark. Le plus important : l'utilisateur non-root. Par défaut Docker tourne en root — si quelqu'un exploite une vulnérabilité dans l'appli, il a les droits root sur le conteneur. Avec appuser, l'impact est limité.
+
+SECRETS : Avant la correction, le docker-compose.yml avait des mots de passe en clair — si quelqu'un forke le repo, il a les credentials. Maintenant tout est dans .env, gitignorée, et le compose utilise env_file.
+
+**Questions jury probables :**
+- *'Certificat auto-signé c'est pas sécurisé'* → C'est vrai pour la confiance de l'utilisateur final — le navigateur affiche un avertissement. Mais cryptographiquement TLS 1.3 avec un cert auto-signé est aussi solide que Let's Encrypt. En prod : Traefik + Let's Encrypt. C'est documenté comme limite assumée.
+- *'Pourquoi Alpine ?'* → Alpine Linux pèse 5 Mo contre 200 Mo pour Debian. Moins de packages = moins de CVEs potentielles. Trivy confirme 0 vulnérabilité CRITICAL.
+- *'mem_limit et cpus dans compose, pourquoi ?'* → Protection contre les attaques DoS internes. Si un conteneur est compromis et tente de consommer toutes les ressources, les autres restent opérationnels.
+- *'CIS Docker Benchmark c'est quoi ?'* → C'est un guide de bonnes pratiques de sécurité Docker publié par le Center for Internet Security. On a auto-évalué 14 contrôles dans docs/infra-hardening.md — 12 conformes, 2 non applicables en contexte pédagogique.
+- *'REQUIRE_STRONG_SECRETS c'est vous qui l'avez fait ?'* → Oui, c'est une variable qu'on a implémentée dans server.js. Au démarrage, si JWT_SECRET fait moins de 24 caractères ou INGEST_API_KEY moins de 16, le serveur refuse de démarrer. Fail-fast plutôt que déployer en mode dégradé.">
       <div class="eyebrow">05 — Infrastructure sécurisée</div>
       <h2>Durci sur <em>3 niveaux</em> : réseau, conteneurs, secrets</h2>
       <div class="three-col">
@@ -628,7 +705,31 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S7: DÉMO 1 -->
     <div class="slide" id="s7"
       data-dur="2:00"
-      data-notes="**DÉMO en direct.** Ouvrir un terminal. Lancer le listener en mode simulé. *Laisser tourner 10 secondes.* On voit les logs s'envoyer — chaque log est hashé SHA-256 avant stockage. Ouvrir le dashboard sur https://localhost, se connecter, charger les logs. *Pointer l'interface.* Cliquer sur 'Charger les logs' — on voit les événements arriver en temps réel.">
+      data-notes="**CHECKLIST AVANT DÉMO — vérifier AVANT de monter sur scène :**
+✅ docker compose up -d → tous les conteneurs UP
+✅ https://localhost → pas d'erreur de connexion refusée
+✅ Listener en mode simulé prêt à lancer
+
+**Script de démo pas à pas :**
+1. Ouvrir terminal → cd listener-agent
+2. $env:LISTENER_MODE='simulated' → python listener.py
+3. Laisser tourner ~15 secondes, commenter ce qui s'affiche
+4. Ouvrir https://localhost dans le navigateur
+5. Login : admin / Admin1234! (ou ce qu'il y a dans .env)
+6. Cliquer 'Charger les logs' — montrer les événements
+
+**Ce que tu commentes pendant la démo :**
+'Chaque log qui arrive est d'abord validé par notre schéma Zod — si le format est incorrect, c'est rejeté immédiatement. Ensuite le hash SHA-256 est calculé avant stockage. Puis le moteur de détection consulte les règles en base de données...'
+
+**Si la démo plante :**
+- Nginx down → `docker compose restart nginx`
+- Backend down → `docker compose restart backend`
+- Logs pas visibles → vérifier que le listener envoie bien (status=201 dans le terminal)
+- En dernier recours → montrer le code directement dans VS Code, les logs dans la slide suffisent
+
+**Questions jury probables :**
+- *'Le mode simulé c'est pas de la triche ?'* → Non, on a aussi un mode réel qui lit les Windows Event Logs. Le mode simulé c'est pour la reproductibilité de la démo. En prod, on déploie le listener en mode windows sur les hôtes surveillés.
+- *'Rate limiting c'est combien ?'* → 10 tentatives de connexion par 15 minutes sur /auth/login. 300 logs par minute sur /logs/ingest.">
       <div class="eyebrow">06 — Démonstration</div>
       <h2><em>Ingestion temps réel</em> — du log au dashboard</h2>
       <div class="two-col">
@@ -664,7 +765,24 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S8: DÉMO 2 -->
     <div class="slide" id="s8"
       data-dur="1:30"
-      data-notes="**Sur le dashboard.** Cliquer sur 'Charger les tickets'. On voit les tickets créés automatiquement. Cliquer sur un ticket — le patcher en 'in_progress'. *Ouvrir les audit logs.* On voit l'action 'ticket_updated' avec l'acteur, l'heure, le ticket ID. **C'est la traçabilité non répudiable** — tout ce qui se passe est enregistré. *Si le jury demande :* l'analyste ne peut PAS modifier l'audit trail, c'est en insertion seule.">
+      data-notes="**But de cette démo :** montrer que chaque action humaine laisse une trace indélébile.
+
+**Script pas à pas :**
+1. Sur le dashboard → cliquer 'Charger les tickets' → montrer les tickets auto-créés
+2. Cliquer sur un ticket → bouton 'Prendre en charge' → statut passe à in_progress
+3. Dans le menu 'Audit logs' → filtrer par action=ticket_updated → montrer l'entrée créée
+4. Lire les champs à voix haute : actor=admin, action=ticket_updated, ticket_id=X, timestamp=...
+
+**Ce que tu dis pendant :**
+'Chaque action de l'analyste génère une entrée dans l'audit trail. Cette entrée est en insertion-seule — même l'admin ne peut pas la modifier ou la supprimer. C'est ce qu'on appelle la non-répudiation : personne ne peut nier avoir fait une action.'
+
+**Détail technique important à connaître :**
+L'audit trail est dans SQLite, pas MongoDB. Raison : on veut des transactions ACID pour les événements de sécurité. MongoDB pour les logs réseau (volume), SQLite pour les événements critiques (intégrité).
+
+**Questions jury probables :**
+- *'Un admin ne peut vraiment pas supprimer l'audit trail ?'* → Correct, le routeur Express ne propose aucun DELETE sur /audit-logs. Même si quelqu'un fait un DELETE direct en SQL, le FOREIGN KEY + journal WAL garde la trace. En production on ajouterait un WORM storage externe.
+- *'Qu'est-ce que la non-répudiation ?'* → C'est le fait qu'un acteur ne peut pas nier avoir effectué une action. On a l'heure, l'identité JWT, l'action, et l'objet ciblé — les 4 éléments requis pour une preuve recevable.
+- *'actions auditées : c'est exhaustif ?'* → On audite : login success/fail/blocked, log_ingest_denied, incident_auto_created, ticket_updated, log_integrity_violation, rule_created/updated. Ce qui n'est pas audité : les lectures (GET) — c'est un choix de performance documenté dans la PSSI.">
       <div class="eyebrow">07 — Démonstration</div>
       <h2>Détection automatique → ticket → <em>audit trail</em></h2>
       <div class="two-col">
@@ -705,7 +823,31 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S9: DÉMO 3 INTÉGRITÉ -->
     <div class="slide" id="s9"
       data-dur="1:30"
-      data-notes="**La fonctionnalité qui impressionne toujours le jury.** Chaque log est hashé SHA-256 à l'insertion. On peut vérifier à tout moment qu'il n'a pas été altéré. *Faire la démo en live.* Appeler /logs/:id/verify → match:true. Maintenant modifier le log directement en MongoDB (mongosh), rappeler verify → INTEGRITY VIOLATION. *Marquer une pause.* C'est la **chaîne de preuve** — fondamentale en forensique.">
+      data-notes="**C'est la démo la plus spectaculaire — prends le temps de la soigner.**
+
+**SHA-256 en une phrase :** fonction de hachage cryptographique qui produit une empreinte de 256 bits. Si on change un seul octet dans le log, l'empreinte est complètement différente. C'est déterministe et non-réversible.
+
+**Script démo exact :**
+Étape 1 — vérifier un log sain :
+  curl -sH 'Authorization: Bearer $TOKEN' localhost:4000/logs/ID-DU-LOG/verify
+  → Résultat attendu : match:true, stored_hash == computed_hash
+
+Étape 2 — corrompre le log (ouvrir mongosh dans un autre onglet terminal) :
+  mongosh
+  use socket_logs
+  db.logs.updateOne({_id: ObjectId('ID')}, {$set: {message: 'falsifié'}})
+
+Étape 3 — rappeler verify :
+  → Résultat : match:false, alert: 'INTEGRITY VIOLATION'
+
+**Ce que tu dis pendant la pause :**
+'On vient de simuler exactement ce qu'un attaquant ferait pour effacer ses traces — modifier directement la base de données. Le système détecte immédiatement la falsification. En forensique numérique, c'est la garantie que les preuves qu'on présente à un tribunal n'ont pas été altérées après collecte.'
+
+**Questions jury probables :**
+- *'SHA-256 c'est pas cassé ?'* → Non. MD5 et SHA-1 ont des collisions connues. SHA-256 reste sans collision connue à ce jour, c'est le standard NIST pour les applications critiques.
+- *'Pourquoi pas une signature numérique plutôt qu'un simple hash ?'* → Excellente question. Un hash seul ne prouve pas qui a créé le log. Une signature RSA/ECDSA prouverait aussi l'authenticité. C'est documenté dans nos limites — évolution possible avec une PKI interne.
+- *'Le hash est dans la même base que le log — si la DB est compromise, les deux peuvent être modifiés.'* → Correct. Mitigation : exporter les hash vers un système externe (append-only, S3 avec Object Lock, ou blockchain). Documenté comme risque résiduel.
+- *'Vous hashéz quoi exactement ?'* → La concaténation de : host + event_type + message + timestamp + source_ip + severity. Les 6 champs sémantiques du log.">
       <div class="eyebrow">08 — Démonstration</div>
       <h2>Intégrité des preuves — <em>SHA-256 par log</em></h2>
       <div class="two-col">
@@ -746,7 +888,27 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S10: AUDIT -->
     <div class="slide" id="s10"
       data-dur="2:00"
-      data-notes="**On a audité notre propre plateforme.** Méthode boîte grise — on a le code ET on teste dynamiquement. 8 vulnérabilités identifiées, toutes corrigées. *Insister sur la méthode :* on a suivi le référentiel OWASP Top 10 2021 catégorie par catégorie. *Si on vous demande les outils :* curl pour les tests manuels, Semgrep pour le SAST, OWASP ZAP pour le DAST, Trivy pour l'image Docker.">
+      data-notes="**Message de cette slide :** on a appliqué une méthode rigoureuse, pas fait du trial-and-error.
+
+**Ce que tu dis en entrée :**
+'Avant de sécuriser, il faut savoir ce qu'on cherche. On a utilisé l'OWASP Top 10 2021 — la dernière version stable officielle — comme checklist systématique. On a testé notre plateforme catégorie par catégorie.'
+
+**Pourquoi 2021 et pas 2025 ?** La version 2025 est encore en Draft en 2026. Les outils CI/CD — Semgrep, ZAP, Trivy — mappent leurs règles à la version 2021. Utiliser le Draft aurait créé des incohérences entre nos tests manuels et les résultats automatisés. C'est un choix technique documenté, pas une lacune.
+
+**Catégorie par catégorie — ce que tu as testé :**
+- A01 Broken Access Control : JWT forgé à la main (modifier payload sans resigner), tester /admin avec token analyst → 403
+- A02 Crypto Failures : vérifier TLS, bcrypt cost 12, pas de MD5/SHA-1, pas de secrets dans le code
+- A03 Injection : payload ' OR 1=1 -- dans les champs, {$gt: ''} dans JSON pour NoSQL injection → Zod rejette avant SQL
+- A04 Insecure Design : vérifier que les règles de détection sont en DB pas hardcodées → CRUD API /rules
+- A05 Security Misconfiguration : MongoDB sans auth exposé port 27017, conteneur en root, headers HTTP manquants
+- A06 Vulnerable Components : npm audit, pip-audit, Trivy → 0 CVE CRITICAL à ce jour
+- A07 Auth Failures : brute force sur /auth/login → bloqué à 10 tentatives/15min
+- A08 Software Integrity : SHA-256 sur les logs, Gitleaks sur Git, pipeline CI/CD signé
+- A09 Logging & Monitoring Failures : audit trail, webhook alertes, /metrics/security
+
+**Questions jury probables :**
+- *'A04 c'était comment un problème ?'* → Au début les règles de détection (ex: 5 failed logins = brute force) étaient hardcodées dans le code. On les a migrées en base de données avec un CRUD sécurisé admin-only — un admin peut maintenant ajouter/modifier les règles sans redéployer l'application.
+- *'Méthode boîte grise — c'est quoi la différence avec black box ?'* → Black box : testeur n'a pas le code, comme un attaquant externe. White box : accès complet au code, review statique. Boîte grise : on a le code + on teste dynamiquement — approche réaliste pour un audit interne.">
       <div class="eyebrow">09 — Audit de sécurité</div>
       <h2>OWASP Top 10 — <em>couverture complète</em></h2>
       <div class="two-col">
@@ -785,7 +947,31 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S11: FINDINGS -->
     <div class="slide" id="s11"
       data-dur="1:30"
-      data-notes="**Présenter les 3 findings les plus critiques.** F1 : MongoDB était accessible depuis l'hôte sans authentification — CVSS 9.1, n'importe qui sur le réseau pouvait lire tous les logs. F2 : Les secrets étaient en clair dans le docker-compose — pushé sur GitHub, c'est game over. F7 : HTTP pur — token JWT en clair sur le réseau. *Tous corrigés avant la soutenance.* **La timeline de remédiation montre la rigueur** — on a identifié, corrigé et vérifié dans la foulée.">
+      data-notes="**Ce que tu dois connaître sur chaque finding par cœur :**
+
+F1 — MongoDB exposé port 27017 sans auth (CVSS 9.1 Critique)
+→ Impact : n'importe qui sur le même réseau pouvait se connecter avec mongosh et lire/modifier/supprimer TOUS les logs. Réseau Docker par défaut = bridge, port publié sur l'hôte.
+→ Fix : supprimer le port 27017 du docker-compose (MongoDB reste accessible uniquement depuis le réseau interne Docker socket_net), + MONGO_INITDB_ROOT_USERNAME/PASSWORD forcés.
+→ Vérification : nc -zv localhost 27017 → Connection refused. mongosh mongodb://localhost:27017 → auth error.
+
+F2 — Secrets en clair dans docker-compose (CVSS 8.5)
+→ Impact : JWT_SECRET, INGEST_API_KEY, BOOTSTRAP_ADMIN_PASSWORD visibles dans le repo Git → si le repo est public ou accessible, attaquant peut forger des tokens JWT valides indéfiniment.
+→ Fix : migration vers env_file + variables d'environnement + .gitignore sur .env. Valeurs par défaut dev-only dans le compose pour la CI.
+→ Vérification : grep -r 'JWT_SECRET' docker-compose.yml → renvoie uniquement ${JWT_SECRET}.
+
+F7 — HTTP pur, absence de TLS (CVSS 7.5)
+→ Impact : tokens JWT transmis en clair sur le réseau. Man-in-the-middle trivial sur le même réseau local (ex: café, bureau partagé) → capture du token → accès admin.
+→ Fix : Nginx en terminaison TLS 1.3, HSTS header, redirection 301 HTTP→HTTPS, certificat auto-signé (Let's Encrypt en production).
+→ Vérification : curl -kI https://localhost → Strict-Transport-Security: max-age=31536000, TLSv1.3.
+
+**Délais :**
+F1 et F2 : trouvés et corrigés le jour 0 de l'audit (audit de démarrage)
+F7 : corrigé à J+1 — temps d'implémenter Nginx proprement
+Autres findings (F3-F6, F8) : moyenne 12h, maximum 48h
+
+**Questions jury probables :**
+- *'Vous avez trouvé ces vulnérabilités vous-mêmes ou c'était dans un outil ?'* → Les 3 critiques (F1, F2, F7) ont été trouvées lors de l'audit initial manuel — checklist OWASP. Les vulnérabilités de dépendances (F5, F6) ont été trouvées par npm audit et pip-audit dans le pipeline CI.
+- *'CVSS c'est calculé comment ?'* → Common Vulnerability Scoring System — score de 0 à 10 basé sur 8 métriques : vecteur d'attaque, complexité, privilèges requis, interaction utilisateur, confidentialité/intégrité/disponibilité. On l'a calculé manuellement sur le calculateur NIST NVD.">
       <div class="eyebrow">10 — Findings & remédiation</div>
       <h2>Top 3 findings — <em>identifiés, corrigés, vérifiés</em></h2>
       <table class="styled-table" style="margin-bottom:20px">
@@ -823,7 +1009,28 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S12: CI/CD -->
     <div class="slide" id="s12"
       data-dur="2:00"
-      data-notes="**Le pipeline est le filet de sécurité.** 7 jobs qui tournent à chaque push. *Insister :* Semgrep est **bloquant** — si on détecte une vulnérabilité, le merge est impossible. Même chose pour Trivy. Le ZAP DAST démarre l'application entière en CI et la scanne dynamiquement. **Gitleaks** scanne tout l'historique Git — même les secrets qu'on aurait pushés il y a 6 mois. *Si le jury demande le badge :* il est dans le README, vert en ce moment.">
+      data-notes="**Le concept clé : 'shift left security'** — on détecte les problèmes au plus tôt dans le cycle de développement, pas après le déploiement.
+
+**Les 7 jobs un par un :**
+
+1. backend-checks : npm ci + npm audit --omit=dev --audit-level=high. Si une dépendance Node a une CVE HIGH ou CRITICAL → build échoue. Tests d'intégration sécurité : auth, RBAC, injection, rate limit.
+
+2. listener-checks : pip install + pip-audit. Idem pour les dépendances Python du listener.
+
+3. semgrep (SAST) : analyse statique du code source. Règle p/security-audit détecte : SQL injection, secrets hardcodés, eval(), crypto weak, path traversal. Bloquant sur exit-code.
+
+4. gitleaks : scanne tout l'historique Git commit par commit à la recherche de secrets (AWS keys, tokens, passwords). Même un secret pushé et supprimé 6 mois plus tôt serait détecté. On a un .gitleaks.toml avec un allowlist pour les exemples de JWT dans la doc.
+
+5. sbom (Syft) : génère le Software Bill of Materials en spdx-json. Inventaire exact de toutes les dépendances et leurs versions. Requis par certaines réglementations (US Executive Order on Cybersecurity).
+
+6. docker-scan (Trivy) : construit l'image et scanne. CRITICAL → bloquant. HIGH → informatif. ignore-unfixed:true = on ignore les CVEs sans patch disponible.
+
+7. zap-dast : démarre docker compose entier en CI, attend que le backend réponde, lance ZAP Baseline Scan sur https://localhost. Teste l'application EN EXÉCUTION — trouve les problèmes que le SAST rate (mauvaise config runtime, headers manquants).
+
+**Questions jury probables :**
+- *'Quelle différence entre SAST et DAST ?'* → SAST analyse le code source sans l'exécuter (Semgrep). DAST envoie des requêtes HTTP à l'application qui tourne (ZAP). SAST trouve les bugs logiques tôt, DAST trouve les problèmes de comportement réel. Les deux sont complémentaires.
+- *'C'est quoi un SBOM ?'* → Software Bill of Materials — liste exhaustive de tous les composants logiciels. Permet de savoir immédiatement si on est vulnérable quand une nouvelle CVE sort, sans avoir à chercher dans le code.
+- *'Combien de temps ça prend le pipeline ?'* → Environ 8-12 minutes. Le plus long c'est le ZAP DAST qui démarre docker compose + attend le health check + scanne.">
       <div class="eyebrow">11 — DevSecOps & CI/CD</div>
       <h2><em>7 jobs de sécurité</em> à chaque commit</h2>
       <div class="three-col" style="margin-bottom:20px">
@@ -859,7 +1066,29 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S13: FORENSIQUE -->
     <div class="slide" id="s13"
       data-dur="2:00"
-      data-notes="**Scénario réel simulé.** On a un hôte 10.0.0.42 qui fait du brute force, puis envoie un payload PowerShell. *Dérouler la timeline.* Ce qui est important : la détection est **automatique et quasi-instantanée** — 0 seconde. Le MTTD humain est de 7 minutes — c'est notre point d'amélioration documenté. **Insister sur le playbook** : on a 3 procédures de réponse formalisées — brute force, exécution suspecte, exfiltration. Le jury veut voir qu'on sait quoi faire quand ça sonne.">
+      data-notes="**Structure de cette slide : timeline → métriques → playbooks. Dérouler lentement.**
+
+**Comment lire la timeline avec le jury :**
+09:14:03 → Les logs de failed_login arrivent. Le moteur de détection évalue chaque log contre les règles en DB.
+09:14:11 → 5e tentative en moins de 60s : règle 'brute_force' triggered. Incident créé automatiquement, ticket généré, audit_log enregistré — tout en moins d'une seconde.
+09:17:44 → L'analyste arrive au travail et se connecte. C'est là que commence le MTTD humain.
+09:19:15 → Deuxième alerte : PowerShell -EncodedCommand détecté. C'est le signe d'une exécution malveillante typique (lateral movement, payload téléchargé). Webhook envoyé vers l'externe.
+09:47:00 → Décision d'isolation prise. MTTR = 47 - 14 = 33 minutes.
+
+**MTTD / MTTR — explications :**
+MTTD auto = temps entre le premier log et l'incident créé = ~8 secondes (traitement de 5 logs + évaluation règle + insertion incident)
+MTTD humain = temps entre le premier log et quand l'analyste regarde l'incident = 7 min 22 sec. C'est notre KPI à améliorer — alerte par email/SMS pour réduire à <5min.
+MTTR = Mean Time To Respond = du premier log jusqu'à la décision de réponse (isolation) = 33 min. Objectif PSSI : <4h. On est très en dessous.
+
+**Les 3 playbooks (à connaître par cœur) :**
+1. Brute force : triage (vérifier si l'IP est connue, interne/externe) → collecte logs (export JSON, chaîne de custody) → décision (blocage IP, désactivation compte, escalade)
+2. Exécution suspecte (PowerShell -Enc, calc.exe, etc.) : escalade obligatoire au RSSI, isolation de l'hôte, forensique mémoire (dump RAM), analyse du binaire
+3. Exfiltration : analyse volumétrique (bytes envoyés hors réseau > seuil), identification des destinations IP, blocage firewall, notification RGPD si données personnelles impliquées (Art. 33 — 72h)
+
+**Questions jury probables :**
+- *'Pourquoi le MTTD humain est supérieur à l'objectif de 5min ?'* → Parce qu'on n'a pas encore implémenté les alertes push (email, SMS, webhook Slack). C'est documenté dans la PSSI comme point d'amélioration. Le système détecte en 8 secondes, mais si personne ne regarde le dashboard, ça ne sert à rien.
+- *'Chaîne de custody — c'est quoi exactement ?'* → Procédure qui garantit l'intégrité et la traçabilité d'une preuve numérique : qui a collecté, quand, avec quel outil, et qu'elle n'a pas été modifiée. Notre SHA-256 par log est la base technique de cette chaîne.
+- *'Le playbook c'est juste un document Word ?'* → Non, c'est un fichier Markdown dans docs/forensics-playbook.md avec des étapes numérotées, des commandes exactes à exécuter, et des critères de décision explicites. L'idée c'est qu'un analyste débutant puisse le suivre à 3h du matin.">
       <div class="eyebrow">12 — Forensique & réponse aux incidents</div>
       <h2>Scénario d'incident simulé — <em>timeline complète</em></h2>
       <div class="two-col">
@@ -899,7 +1128,26 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S14: MÉTRIQUES -->
     <div class="slide" id="s14"
       data-dur="1:00"
-      data-notes="**La plateforme se surveille elle-même.** L'endpoint /metrics/security retourne en temps réel tout ce qu'un responsable SOC veut voir d'un coup d'œil. *Appeler l'endpoint en live si possible.* C'est aussi ce qui permet de suivre les KPI définis dans la PSSI : MTTD, MTTR, taux de faux positifs.">
+      data-notes="**Message court, slide rapide.** Cette slide sert à montrer la maturité opérationnelle — pas seulement on détecte, on mesure.
+
+**Ce que tu dis en entrée :**
+'Un SOC sans métriques est aveugle. On a implémenté un endpoint /metrics/security qui retourne en temps réel l'état de santé sécuritaire de la plateforme. C'est ce qu'un RSSI regarde en premier le matin.'
+
+**Champ par champ — ce que ça signifie opérationnellement :**
+- incidents.critical_open : si > 0, il y a une alerte active non résolue. Objectif PSSI : 0 en fin de journée.
+- auth.failed_logins_last_hour : si > 50, signe d'une attaque en cours. Si c'est 23 comme dans l'exemple, c'est dans les seuils normaux.
+- auth.locked_accounts : si > 0, quelqu'un se fait attaquer en ce moment. Cross-référencer avec les incidents.
+- detection.active_rules : si 0, le moteur de détection est désactivé — c'est un problème critique.
+- logs.total : permet de voir si l'ingestion fonctionne (si le chiffre reste stable, le listener est peut-être tombé).
+
+**Démonstration live (si le temps le permet) :**
+  curl -sH 'Authorization: Bearer $TOKEN' localhost:4000/metrics/security | jq .
+→ Montre les données réelles de la plateforme en ce moment.
+
+**Questions jury probables :**
+- *'Qui a accès à /metrics/security ?'* → Admin uniquement. Un analyst reçoit 403 Forbidden. C'est le RBAC.
+- *'Ces métriques sont stockées quelque part ?'* → Non, calculées à la volée à chaque appel. En production on les envoyrait vers Prometheus/Grafana pour un historique et des alertes automatiques.
+- *'Taux de faux positifs — vous l'avez ?'* → Pas encore dans les métriques v1 — c'est documenté comme évolution. Pour le calculer, il faudrait un système de feedback 'analyst confirme/infirme l'incident' qui mettrait à jour un champ validated_as_true_positive.">
       <div class="eyebrow">13 — Métriques de sécurité</div>
       <h2>La plateforme se <em>surveille elle-même</em></h2>
       <div class="two-col">
@@ -935,7 +1183,35 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S15: LIMITES -->
     <div class="slide" id="s15"
       data-dur="1:00"
-      data-notes="**On est transparent sur les limites.** Ce sont des choix conscients, pas des oublis. TLS avec CA reconnue : on a un certificat auto-signé qui prouve qu'on sait faire, en production c'est Let's Encrypt via Traefik. SQLite → PostgreSQL : documenté dans architecture.md. *Insister :* ces limites sont documentées dans la PSSI sous forme de 'risques résiduels acceptés' — c'est une posture de sécurité mature de reconnaître ce qu'on ne fait pas encore.">
+      data-notes="**Posture clé : présenter les limites comme une marque de maturité, pas comme des excuses.**
+
+**Ce que tu dis en entrée :**
+'Tout système de sécurité a des risques résiduels. La différence entre un projet amateur et un projet professionnel, c'est que les risques résiduels sont documentés, évalués, et acceptés formellement — pas ignorés.'
+
+**Limite par limite — comment la défendre :**
+
+TLS auto-signé vs CA reconnue :
+→ Ce qu'on a : certificat généré nous-mêmes via openssl, reconnu par le navigateur avec avertissement.
+→ En production : Traefik + Let's Encrypt génère et renouvelle automatiquement un certificat signé par une CA publique. On sait faire, on a juste pas de domaine public pour ce prototype.
+
+SQLite non répliqué :
+→ Ce qu'on a : SQLite en mode WAL (Write-Ahead Logging) — performances correctes pour <100 req/s, données sur le disque local du conteneur.
+→ En production : PostgreSQL avec réplication primaire/secondaire + backup automatique. L'API est déjà prête pour ça — il suffit de changer la connection string.
+
+Pas de rotation automatique des secrets :
+→ Ce qu'on a : JWT_SECRET défini une fois dans .env. Si compromis, il faut redémarrer manuellement.
+→ En production : HashiCorp Vault avec rotation automatique des secrets tous les 30 jours, révocation immédiate possible.
+
+JWT stateless — pas de révocation immédiate :
+→ Ce qu'on a : token valide 1h. Si un utilisateur se déconnecte, le token reste valide jusqu'à expiration.
+→ Mitigation documentée : réduire la durée à 15 minutes + refresh token. Ou Redis pour une blocklist. Le choix stateless est volontaire pour la scalabilité.
+
+MFA absent sur admin :
+→ Documenté dans la PSSI section 11 comme risque résiduel. Évolution : TOTP (Google Authenticator) sur le compte admin.
+
+**Questions jury probables :**
+- *'Vous avez pas peur qu'un jury note ces limites comme des manques ?'* → Non — les documenter prouve qu'on les a identifiées, évaluées (impact/probabilité), et qu'elles sont dans le registre des risques. C'est la démarche PSSI. Un risque ignoré est bien plus grave qu'un risque accepté.
+- *'JWT stateless c'est vraiment un problème ?'* → C'est un trade-off. Stateless = pas de base de données à consulter à chaque requête (scalabilité), mais pas de révocation instantanée. Avec une durée courte (15min) et un refresh token, le risque est limité. C'est accepté dans les guidelines OAuth 2.0.">
       <div class="eyebrow">14 — Limites & évolutions</div>
       <h2>Des risques résiduels <em>documentés et assumés</em></h2>
       <div class="three-col">
@@ -974,7 +1250,32 @@ h2 em { color: var(--blue); font-style: normal; }
     <!-- S16: CONCLUSION -->
     <div class="slide" id="s16"
       data-dur="1:00"
-      data-notes="**Conclusion forte.** SOCket n'est pas un projet académique — c'est un prototype fonctionnel qu'on a sécurisé avec les mêmes méthodes qu'en production : PSSI, EBIOS RM, STRIDE, OWASP Top 10, pipeline DevSecOps bloquant, intégrité des preuves. *Regarder le jury.* La cybersécurité c'est pas une feature qu'on ajoute à la fin, c'est une posture qu'on adopte dès le début. SOCket en est la démonstration. *Je vous remercie, je suis disponible pour vos questions.*">
+      data-notes="**Dernière slide — prends le temps, regarde le jury, ne lis pas les bullets.**
+
+**Script de conclusion (à mémoriser) :**
+'SOCket c'est 5 semaines de travail sur un vrai sujet de cybersécurité. Ce qu'on a voulu démontrer, c'est qu'on peut construire une plateforme qui n'est pas juste fonctionnelle — mais sécurisée par conception, de l'architecture jusqu'au déploiement.
+
+On n'a pas rajouté la sécurité à la fin. On a commencé par la PSSI et l'analyse de risques EBIOS RM avant d'écrire une ligne de code. On a modélisé les menaces avec STRIDE. On a audité catégorie par catégorie avec OWASP Top 10. Et on a automatisé tout ça dans un pipeline DevSecOps qui bloque chaque commit vulnérable.
+
+Le résultat : une plateforme qui détecte en 8 secondes, répond en 33 minutes, et dont chaque log est une preuve forensique inaltérable.
+
+La cybersécurité c'est une posture, pas une feature. SOCket en est la démonstration.'
+
+*[pause, regarder le jury]*
+
+'Je vous remercie. Avec Paul, on est disponibles pour vos questions.'
+
+**En attendant les questions du jury :**
+- Rester debout, ne pas regarder l'écran
+- Si Paul répond une question, ne pas l'interrompre — sourire et approuver si tu es d'accord
+- Si tu ne sais pas : 'C'est une bonne question, on n'a pas implémenté ça — mais la solution serait...'
+- Ne jamais mentir sur ce qu'on a fait ou pas fait
+
+**Questions jury possibles après conclusion :**
+- *'Si c'était à refaire, qu'est-ce que vous changeriez ?'* → MFA dès le début, PostgreSQL plutôt que SQLite, alertes email dès la v1. Et peut-être TypeScript plutôt que JavaScript pour la robustesse.
+- *'Vous avez appris quoi sur ce projet ?'* → Que la sécurité par conception c'est beaucoup plus efficace que la sécurité par correction. Chaque vulnérabilité qu'on n'a pas faite parce qu'on avait Zod et bcrypt d'emblée nous a épargné des heures de debug.
+- *'C'est quoi la différence entre votre projet et un vrai SIEM ?'* → Un SIEM réel (Splunk, Elastic SIEM) gère des millions d'événements par seconde, avec des corrélations temporelles complexes, une UI enterprise, et des connecteurs pour 200 sources de logs différentes. SOCket montre les mécanismes fondamentaux — détection sur règles, ticket, audit trail, intégrité forensique — à une échelle prototype. C'est le 'comment ça marche en dessous' d'un SIEM.
+- *'Vous avez testé en conditions réelles ?'* → On a testé avec de vrais logs Windows Event collectés par le listener en mode réel sur nos machines. Le mode simulé reproduit les mêmes patterns pour la reproductibilité de la démo.">
       <div class="eyebrow">15 — Conclusion</div>
       <h2>SOCket — <em class="hi">une posture, pas une feature</em></h2>
       <div class="stats-row" style="margin-bottom:28px">

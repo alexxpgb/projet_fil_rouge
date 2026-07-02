@@ -1,4 +1,4 @@
-const API = "http://localhost:4000";
+const API = "https://localhost/api";
 let token = "";
 let currentLogs = [];
 let selectedLogId = null;

@@ -422,11 +422,12 @@ h2 em { color: var(--blue); font-style: normal; }
       <span class="dot dot-y"></span>
       <span class="dot dot-g"></span>
       <span class="project-tag">SOCket</span>
-      <span>Alexandre Petit · B3 Cyber · Ynov</span>
+      <span>Alexandre Petit · Paul Givaudan · B3 Cyber · Ynov</span>
     </div>
     <div class="topbar-right">
       <div class="slide-counter"><span id="cur">1</span> / <span id="tot">16</span></div>
       <div class="timer" id="timer">00:00</div>
+      <button id="notesBtn" onclick="openNotes()" style="font-family:var(--mono);font-size:11px;background:var(--border);color:var(--text);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;">Notes →</button>
     </div>
   </div>
   <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
@@ -442,7 +443,7 @@ h2 em { color: var(--blue); font-style: normal; }
       <div class="cover-sub">// Plateforme de gestion d'incidents SOC</div>
       <div class="cover-line"></div>
       <div class="cover-meta">
-        <strong>Alexandre Petit</strong><br>
+        <strong>Alexandre Petit &amp; Paul Givaudan</strong><br>
         B3 Cybersécurité · Ynov<br>
         01 juillet 2026
       </div>
@@ -996,7 +997,7 @@ h2 em { color: var(--blue); font-style: normal; }
     <div class="notes-text" id="notesText"></div>
   </div>
 
-  <div class="nav-hint">← → naviguer &nbsp;·&nbsp; N notes &nbsp;·&nbsp; F plein écran</div>
+  <div class="nav-hint">← → naviguer &nbsp;·&nbsp; F plein écran &nbsp;·&nbsp; Notes → onglet séparé</div>
 
 </div><!-- /shell -->
 
@@ -1004,64 +1005,139 @@ h2 em { color: var(--blue); font-style: normal; }
   const TOTAL = 16;
   const slides = Array.from(document.querySelectorAll('.slide'));
   let cur = 0;
-  let notesOpen = false;
+  const isNotes = new URLSearchParams(location.search).has('notes');
+  const channel = new BroadcastChannel('socket-prez');
 
-  // Timer
-  let timerStart = Date.now();
-  const timerEl = document.getElementById('timer');
-  const TARGET_S = 25 * 60;
-  setInterval(() => {
-    const elapsed = Math.floor((Date.now() - timerStart) / 1000);
-    const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
-    const s = (elapsed % 60).toString().padStart(2, '0');
-    timerEl.textContent = `${m}:${s}`;
-    timerEl.classList.toggle('over', elapsed > TARGET_S);
-  }, 500);
+  // ── MODE NOTES (onglet séparé) ──
+  if (isNotes) {
+    document.querySelector('.shell').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    document.body.style.background = '#070B14';
 
-  function go(idx) {
-    if (idx < 0 || idx >= TOTAL) return;
-    slides[cur].classList.remove('active');
-    slides[cur].classList.add('out');
-    setTimeout(() => slides[cur === idx ? cur : cur].classList.remove('out'), 400);
-    cur = idx;
-    slides[cur].classList.remove('out');
-    slides[cur].classList.add('active');
-    // Update UI
-    document.getElementById('cur').textContent = cur + 1;
-    document.getElementById('progress').style.width = ((cur + 1) / TOTAL * 100) + '%';
-    // Notes
-    const raw = slides[cur].dataset.notes || '';
-    document.getElementById('notesText').innerHTML = raw
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Clean out class from previous
-    slides.forEach((s, i) => { if (i !== cur) { s.classList.remove('active'); setTimeout(() => s.classList.remove('out'), 400); } });
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:32px;max-width:860px;margin:0 auto;font-family:Segoe UI,system-ui,sans-serif;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'font-family:Consolas,monospace;font-size:11px;color:#2B8EFF;letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px;';
+    header.textContent = '📝 Notes présentateur — SOCket';
+
+    const slideInfo = document.createElement('div');
+    slideInfo.id = 'notes-slide-info';
+    slideInfo.style.cssText = 'font-family:Consolas,monospace;font-size:13px;color:#5A7090;margin-bottom:20px;border-bottom:1px solid #1E2D45;padding-bottom:12px;';
+    slideInfo.textContent = 'En attente de la présentation...';
+
+    const timerDiv = document.createElement('div');
+    timerDiv.id = 'notes-timer';
+    timerDiv.style.cssText = 'font-family:Consolas,monospace;font-size:28px;color:#F5A623;margin-bottom:24px;';
+    timerDiv.textContent = '00:00';
+
+    const content = document.createElement('div');
+    content.id = 'notes-content';
+    content.style.cssText = 'font-size:17px;color:rgba(232,237,245,.85);line-height:1.9;white-space:pre-wrap;';
+    content.textContent = 'Ouvre la présentation dans un autre onglet et clique sur "Notes →"';
+
+    wrap.appendChild(header);
+    wrap.appendChild(slideInfo);
+    wrap.appendChild(timerDiv);
+    wrap.appendChild(content);
+    document.body.appendChild(wrap);
+
+    // Style for strong/em inside notes
+    const style = document.createElement('style');
+    style.textContent = '#notes-content strong{color:#E8EDF5} #notes-content em{color:#F5A623;font-style:normal;font-weight:600} body{background:#070B14}';
+    document.head.appendChild(style);
+
+    let timerStart = null;
+    const TARGET_S = 25 * 60;
+    setInterval(() => {
+      if (!timerStart) return;
+      const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+      const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const s = (elapsed % 60).toString().padStart(2, '0');
+      const el = document.getElementById('notes-timer');
+      el.textContent = `${m}:${s}`;
+      el.style.color = elapsed > TARGET_S ? '#E63946' : '#F5A623';
+    }, 500);
+
+    channel.onmessage = (e) => {
+      const { idx, notes, total, ts } = e.data;
+      if (!timerStart && ts) timerStart = Date.now() - ts;
+      document.getElementById('notes-slide-info').textContent = `Slide ${idx + 1} / ${total}`;
+      document.getElementById('notes-content').innerHTML = (notes || '')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>');
+    };
+
+  } else {
+    // ── MODE PRÉSENTATION (onglet principal) ──
+
+    let timerStart = Date.now();
+    const timerEl = document.getElementById('timer');
+    const TARGET_S = 25 * 60;
+    setInterval(() => {
+      const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+      const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const s = (elapsed % 60).toString().padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+      timerEl.classList.toggle('over', elapsed > TARGET_S);
+    }, 500);
+
+    function renderNotes(raw) {
+      return (raw || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+    }
+
+    function broadcast(idx) {
+      channel.postMessage({
+        idx,
+        notes: slides[idx].dataset.notes || '',
+        total: TOTAL,
+        ts: Date.now() - timerStart
+      });
+    }
+
+    function go(idx) {
+      if (idx < 0 || idx >= TOTAL) return;
+      slides[cur].classList.remove('active');
+      slides[cur].classList.add('out');
+      setTimeout(() => slides[cur].classList.remove('out'), 400);
+      cur = idx;
+      slides[cur].classList.remove('out');
+      slides[cur].classList.add('active');
+      document.getElementById('cur').textContent = cur + 1;
+      document.getElementById('progress').style.width = ((cur + 1) / TOTAL * 100) + '%';
+      const raw = slides[cur].dataset.notes || '';
+      document.getElementById('notesText').innerHTML = renderNotes(raw);
+      slides.forEach((s, i) => { if (i !== cur) s.classList.remove('active'); });
+      broadcast(cur);
+    }
+
+    function openNotes() {
+      window.open(location.pathname + '?notes', 'socket-notes',
+        'width=900,height=700,menubar=no,toolbar=no,location=no');
+    }
+    window.openNotes = openNotes;
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); go(cur - 1); }
+      if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
+      if (e.key >= '1' && e.key <= '9') go(+e.key - 1);
+    });
+
+    document.querySelector('.slides-wrap').addEventListener('click', e => {
+      const w = window.innerWidth;
+      if (e.clientX > w * 0.7) go(cur + 1);
+      else if (e.clientX < w * 0.3) go(cur - 1);
+    });
+
+    // Masquer le panel notes intégré (maintenant dans onglet séparé)
+    document.getElementById('notesPanel').style.display = 'none';
+
+    go(0);
   }
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); go(cur - 1); }
-    if (e.key === 'n' || e.key === 'N') {
-      notesOpen = !notesOpen;
-      document.getElementById('notesPanel').classList.toggle('open', notesOpen);
-    }
-    if (e.key === 'f' || e.key === 'F') {
-      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-      else document.exitFullscreen();
-    }
-    if (e.key >= '1' && e.key <= '9') go(+e.key - 1);
-  });
-
-  // Click navigation
-  document.querySelector('.slides-wrap').addEventListener('click', e => {
-    const w = window.innerWidth;
-    if (e.clientX > w * 0.7) go(cur + 1);
-    else if (e.clientX < w * 0.3) go(cur - 1);
-  });
-
-  // Init notes
-  go(0);
-  setTimeout(() => { document.getElementById('notesPanel').classList.add('open'); notesOpen = true; }, 300);
 </script>
 </body>
 </html>

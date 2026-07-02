@@ -30,7 +30,7 @@ async function sendWebhook(incident) {
   }
 }
 const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-me";
-const ingestApiKey = process.env.INGEST_API_KEY || "dev-ingest-key";
+const ingestApiKey = process.env.INGEST_API_KEY || "dev-ingest-key-very-strong";
 const requireStrongSecrets = process.env.REQUIRE_STRONG_SECRETS !== "false";
 const maxFailedLoginAttempts = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS || 5);
 const lockMinutes = Number(process.env.LOGIN_LOCK_MINUTES || 15);

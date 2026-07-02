@@ -55,7 +55,7 @@ Variables importantes backend:
 - `REQUIRE_STRONG_SECRETS=true` pour bloquer les secrets trop faibles
 - `BOOTSTRAP_ADMIN_USERNAME` et `BOOTSTRAP_ADMIN_PASSWORD` pour creer l'admin au premier demarrage
 - `JWT_SECRET` (24+ caracteres recommandes)
-- `INGEST_API_KEY` (16+ caracteres recommandes)
+- `INGEST_API_KEY` (16+ caracteres recommandes) — **doit avoir la meme valeur que celle utilisee par le listener**, sinon l'ingestion echoue avec `401 API key invalide`
 - `MAX_FAILED_LOGIN_ATTEMPTS` (par defaut 5)
 - `LOGIN_LOCK_MINUTES` (par defaut 15)
 
